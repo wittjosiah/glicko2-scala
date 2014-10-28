@@ -1,0 +1,8 @@
+.DS_Store
+.idea
+.idea_modules
+activator
+activator-launch-1.2.10.jar
+activator.bat
+target
+logs
