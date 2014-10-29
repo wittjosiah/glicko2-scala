@@ -22,18 +22,14 @@ class Glicko2(tau: Double = 0.75) {
   // |___   |   |_  |__|  ___|
   //  ___|  |   |__ |    |___
 
-  def playerToGlicko2Scale(player: Player) = {
+  def playerToGlicko2Scale(player: Player) {
     player.rating = (player.rating - 1500) / ConversionConstant
     player.ratingDeviation = player.ratingDeviation / ConversionConstant
-    player
   }
-  def matchesToGlicko2Scale(matches: List[Match]): List[Match] = {
-    if (matches.isEmpty) List()
-    else {
-      val glicko2Winner = playerToGlicko2Scale(matches.head.winner)
-      val glicko2Loser = playerToGlicko2Scale(matches.head.loser)
-      val glicko2Match = new Match(glicko2Winner, glicko2Loser, matches.head.draw)
-      List(glicko2Match) ::: matchesToGlicko2Scale(matches.tail)
+  def playersToGlicko2Scale(players: List[Player]) {
+    if (players.nonEmpty) {
+      playerToGlicko2Scale(players.head)
+      playersToGlicko2Scale(players.tail)
     }
   }
 
@@ -94,15 +90,14 @@ class Glicko2(tau: Double = 0.75) {
     if (Math.abs(newB - newA) > epsilon) converge(newA, newB, newF_A, newF_B, delta, phi, v, a, epsilon)
     else A
   }
-  def calculateNewRating(player: Player, matches: List[Match]) = {
-    val glicko2Player = playerToGlicko2Scale(player)
-    val glicko2Matches = matchesToGlicko2Scale(matches)
+  def calculateNewRating(player: Player, players: List[Player], matches: List[Match]) = {
+    playersToGlicko2Scale(players)
 
-    val phi = glicko2Player.ratingDeviation
-    val sigma = glicko2Player.volatility
+    val phi = player.ratingDeviation
+    val sigma = player.volatility
     val a = Math.log(Math.pow(sigma, 2))
-    val v = calculateV(glicko2Player, glicko2Matches)
-    val delta = calculateDelta(glicko2Player, glicko2Matches)
+    val v = calculateV(player, matches)
+    val delta = calculateDelta(player, matches)
     val epsilon = ConvergenceTolerance
 
     val A = a
@@ -112,40 +107,37 @@ class Glicko2(tau: Double = 0.75) {
 
     val finalA = converge(A, B, f_A, f_B, delta, phi, v, a, epsilon)
 
-    glicko2Player.volatility = Math.exp(finalA/2)
+    player.volatility = Math.exp(finalA/2)
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__
   //  ___|  |   |__ |     |__|
 
-    glicko2Player.ratingDeviation = Math.sqrt(Math.pow(glicko2Player.ratingDeviation, 2) + Math.pow(glicko2Player.volatility, 2))
+    player.ratingDeviation = Math.sqrt(Math.pow(player.ratingDeviation, 2) + Math.pow(player.volatility, 2))
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |  |
   //  ___|  |   |__ |        |
 
-    glicko2Player.ratingDeviation = 1.0 / Math.sqrt(1.0/Math.pow(glicko2Player.ratingDeviation, 2) + 1.0/v)
-    glicko2Player.rating = glicko2Player.rating + Math.pow(glicko2Player.ratingDeviation, 2) * outcomeRating(glicko2Player, glicko2Matches)
+    player.ratingDeviation = 1.0 / Math.sqrt(1.0/Math.pow(player.ratingDeviation, 2) + 1.0/v)
+    player.rating = player.rating + Math.pow(player.ratingDeviation, 2) * outcomeRating(player, matches)
 
-    playerToGlickoScale(glicko2Player)
+    playersToGlickoScale(players)
+    player
   }
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__|
   //  ___|  |   |__ |     |__|
 
-  def playerToGlickoScale(player: Player) = {
+  def playerToGlickoScale(player: Player) {
     player.rating = player.rating * ConversionConstant + 1500
     player.ratingDeviation = player.ratingDeviation * ConversionConstant
-    player
   }
-  def matchesToGlickoScale(matches: List[Match]): List[Match] = {
-    if (matches.isEmpty) List()
-    else {
-      val glickoWinner = playerToGlickoScale(matches.head.winner)
-      val glickoLoser = playerToGlickoScale(matches.head.loser)
-      val glickoMatch = new Match(glickoWinner, glickoLoser, matches.head.draw)
-      List(glickoMatch) ::: matchesToGlicko2Scale(matches.tail)
+  def playersToGlickoScale(players: List[Player]) {
+    if (players.nonEmpty) {
+      playerToGlickoScale(players.head)
+      playersToGlickoScale(players.tail)
     }
   }
 }
