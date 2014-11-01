@@ -1,7 +1,5 @@
 package models
 
-import controllers.Glicko2
-
 /**
  * Created by josiah on 14-10-28.
  */

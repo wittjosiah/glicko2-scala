@@ -39,8 +39,8 @@ class Glicko2(tau: Double = 0.75) {
 
   def g(deviation: Double) = 1.0 / Math.sqrt(1.0 + (3.0 * Math.pow(deviation, 2) / Math.pow(Math.PI, 2)))
   def E(playerRating: Double, opponentRating: Double, opponentDeviation: Double) = 1.0 / (1.0 + Math.exp(-1.0 * g(opponentDeviation) * (playerRating - opponentRating)))
-  def getOpponent(player: Player, thisMatch: Match) = if (player == thisMatch.winner) thisMatch.loser else thisMatch.winner
-  def inverse_v(player: Player, matches: List[Match]): Double = {
+  def getOpponent(player: Player, thisMatch: Game) = if (player == thisMatch.winner) thisMatch.loser else thisMatch.winner
+  def inverse_v(player: Player, matches: List[Game]): Double = {
     if (matches.isEmpty) 0 else {
       val opponent = getOpponent(player, matches.head)
       Math.pow(g(opponent.ratingDeviation), 2) *
@@ -49,21 +49,21 @@ class Glicko2(tau: Double = 0.75) {
         inverse_v(player, matches.tail)
     }
   }
-  def calculateV(player: Player, matches: List[Match]) = 1.0 / inverse_v(player, matches)
+  def calculateV(player: Player, matches: List[Game]) = 1.0 / inverse_v(player, matches)
 
   //  ___ _____ ___ ___
   // |___   |   |_  |__|  |__|
   //  ___|  |   |__ |        |
 
-  def getScore(player: Player, thisMatch: Match) = if (thisMatch.draw) 0.5 else if (player == thisMatch.winner) 1.0 else 0.0
-  def outcomeRating(player: Player, matches: List[Match]): Double = {
+  def getScore(player: Player, thisMatch: Game) = if (thisMatch.draw) 0.5 else if (player == thisMatch.winner) 1.0 else 0.0
+  def outcomeRating(player: Player, matches: List[Game]): Double = {
     if (matches.isEmpty) 0 else {
       val opponent = getOpponent(player, matches.head)
       val score = getScore(player, matches.head)
       g(opponent.ratingDeviation) * (score - E(player.rating, opponent.rating, opponent.ratingDeviation)) + outcomeRating(player, matches.tail)
     }
   }
-  def calculateDelta(player: Player, matches: List[Match]) = calculateV(player, matches) * outcomeRating(player, matches)
+  def calculateDelta(player: Player, matches: List[Game]) = calculateV(player, matches) * outcomeRating(player, matches)
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__
@@ -90,7 +90,7 @@ class Glicko2(tau: Double = 0.75) {
     if (Math.abs(newB - newA) > epsilon) converge(newA, newB, newF_A, newF_B, delta, phi, v, a, epsilon)
     else A
   }
-  def calculateNewRating(player: Player, players: List[Player], matches: List[Match]) = {
+  def calculateNewRating(player: Player, players: List[Player], matches: List[Game]) = {
     playersToGlicko2Scale(players)
 
     val phi = player.ratingDeviation
