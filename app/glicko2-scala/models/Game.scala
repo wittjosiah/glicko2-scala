@@ -1,4 +1,4 @@
-package models
+package glicko2scala.models
 
 /**
  * Created by josiah on 14-10-28.

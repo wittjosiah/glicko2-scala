@@ -1,13 +1,13 @@
-package controllers
+package glicko2scala
 
-import models._
+import glicko2scala.models._
 
 /**
  * Created by josiah on 14-10-28.
  */
 
 // Based off of Mark Glickman's rating system as specified in http://www.glicko.net/glicko/glicko2.pdf
-class Glicko2(tau: Double = 0.75) {
+class Glicko2Client(tau: Double = 0.75, val clientId: String) {
   //  ___ _____ ___ ___
   // |___   |   |_  |__|  /|
   //  ___|  |   |__ |     _|_
