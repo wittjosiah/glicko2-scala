@@ -1,13 +1,13 @@
-package glicko2scala
+package glicko2
 
-import glicko2scala.models._
+import glicko2.models._
 
 /**
  * Created by josiah on 14-10-28.
  */
 
 // Based off of Mark Glickman's rating system as specified in http://www.glicko.net/glicko/glicko2.pdf
-object Glicko2Client {
+object RatingSystem {
   //  ___ _____ ___ ___
   // |___   |   |_  |__|  /|
   //  ___|  |   |__ |     _|_
@@ -23,16 +23,9 @@ object Glicko2Client {
   // |___   |   |_  |__|  ___|
   //  ___|  |   |__ |    |___
 
-  def playerToGlicko2Scale(player: Player) {
-    player.rating = (player.rating - 1500) / ConversionConstant
-    player.ratingDeviation = player.ratingDeviation / ConversionConstant
-  }
-  def playersToGlicko2Scale(players: List[Player]) {
-    if (players.nonEmpty) {
-      playerToGlicko2Scale(players.head)
-      playersToGlicko2Scale(players.tail)
-    }
-  }
+  def playerToGlicko2Scale(p: PlayerRating) = PlayerRating(p.gameType, (p.rating - 1500) / ConversionConstant, p.ratingDeviation / ConversionConstant)
+  def gameToGlicko2Scale(g: Game) = Game(playerToGlicko2Scale(g.winner), playerToGlicko2Scale(g.loser), g.draw)
+  def gamesToGlicko2Scale(g: List[Game]) = g map (game => gameToGlicko2Scale(game))
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|   __|
@@ -40,31 +33,31 @@ object Glicko2Client {
 
   def g(deviation: Double) = 1.0 / Math.sqrt(1.0 + (3.0 * Math.pow(deviation, 2) / Math.pow(Math.PI, 2)))
   def E(playerRating: Double, opponentRating: Double, opponentDeviation: Double) = 1.0 / (1.0 + Math.exp(-1.0 * g(opponentDeviation) * (playerRating - opponentRating)))
-  def getOpponent(player: Player, thisMatch: Game) = if (player == thisMatch.winner) thisMatch.loser else thisMatch.winner
-  def inverse_v(player: Player, matches: List[Game]): Double = {
-    if (matches.isEmpty) 0 else {
-      val opponent = getOpponent(player, matches.head)
+  def getOpponent(player: PlayerRating, thisMatch: Game) = if (player == thisMatch.winner) thisMatch.loser else thisMatch.winner
+  def inverse_v(player: PlayerRating, games: List[Game]): Double = {
+    if (games.isEmpty) 0 else {
+      val opponent = getOpponent(player, games.head)
       Math.pow(g(opponent.ratingDeviation), 2) *
         E(player.rating, opponent.rating, opponent.ratingDeviation) *
         (1.0 - E(player.rating, opponent.rating, opponent.ratingDeviation)) +
-        inverse_v(player, matches.tail)
+        inverse_v(player, games.tail)
     }
   }
-  def calculateV(player: Player, matches: List[Game]) = 1.0 / inverse_v(player, matches)
+  def calculateV(player: PlayerRating, games: List[Game]) = 1.0 / inverse_v(player, games)
 
   //  ___ _____ ___ ___
   // |___   |   |_  |__|  |__|
   //  ___|  |   |__ |        |
 
-  def getScore(player: Player, thisMatch: Game) = if (thisMatch.draw) 0.5 else if (player == thisMatch.winner) 1.0 else 0.0
-  def outcomeRating(player: Player, matches: List[Game]): Double = {
-    if (matches.isEmpty) 0 else {
-      val opponent = getOpponent(player, matches.head)
-      val score = getScore(player, matches.head)
-      g(opponent.ratingDeviation) * (score - E(player.rating, opponent.rating, opponent.ratingDeviation)) + outcomeRating(player, matches.tail)
+  def getScore(player: PlayerRating, thisMatch: Game) = if (thisMatch.draw) 0.5 else if (player == thisMatch.winner) 1.0 else 0.0
+  def outcomeRating(player: PlayerRating, games: List[Game]): Double = {
+    if (games.isEmpty) 0 else {
+      val opponent = getOpponent(player, games.head)
+      val score = getScore(player, games.head)
+      g(opponent.ratingDeviation) * (score - E(player.rating, opponent.rating, opponent.ratingDeviation)) + outcomeRating(player, games.tail)
     }
   }
-  def calculateDelta(player: Player, matches: List[Game]) = calculateV(player, matches) * outcomeRating(player, matches)
+  def calculateDelta(player: PlayerRating, games: List[Game]) = calculateV(player, games) * outcomeRating(player, games)
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__
@@ -91,14 +84,15 @@ object Glicko2Client {
     if (Math.abs(newB - newA) > epsilon) converge(newA, newB, newF_A, newF_B, delta, phi, v, a, epsilon)
     else A
   }
-  def calculateNewRating(player: Player, players: List[Player], matches: List[Game]) = {
-    playersToGlicko2Scale(players)
+  def calculateNewRating(p: PlayerRating, g: List[Game]) = {
+    val player = playerToGlicko2Scale(p)
+    val games = gamesToGlicko2Scale(g)
 
     val phi = player.ratingDeviation
     val sigma = player.volatility
     val a = Math.log(Math.pow(sigma, 2))
-    val v = calculateV(player, matches)
-    val delta = calculateDelta(player, matches)
+    val v = calculateV(player, games)
+    val delta = calculateDelta(player, games)
     val epsilon = ConvergenceTolerance
 
     val A = a
@@ -108,37 +102,29 @@ object Glicko2Client {
 
     val finalA = converge(A, B, f_A, f_B, delta, phi, v, a, epsilon)
 
-    player.volatility = Math.exp(finalA/2)
+    val newVolatility = Math.exp(finalA/2)
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__
   //  ___|  |   |__ |     |__|
 
-    player.ratingDeviation = Math.sqrt(Math.pow(player.ratingDeviation, 2) + Math.pow(player.volatility, 2))
+    val interDeviation = Math.sqrt(Math.pow(player.ratingDeviation, 2) + Math.pow(newVolatility, 2))
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |  |
   //  ___|  |   |__ |        |
 
-    player.ratingDeviation = 1.0 / Math.sqrt(1.0/Math.pow(player.ratingDeviation, 2) + 1.0/v)
-    player.rating = player.rating + Math.pow(player.ratingDeviation, 2) * outcomeRating(player, matches)
+    val newDeviation = 1.0 / Math.sqrt(1.0/Math.pow(interDeviation, 2) + 1.0/v)
+    val newRating = player.rating + Math.pow(newDeviation, 2) * outcomeRating(player, games)
 
-    playersToGlickoScale(players)
-    player
+    playerToGlickoScale(PlayerRating(player.gameType, newRating, newDeviation, newVolatility))
   }
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__|
   //  ___|  |   |__ |     |__|
 
-  def playerToGlickoScale(player: Player) {
-    player.rating = player.rating * ConversionConstant + 1500
-    player.ratingDeviation = player.ratingDeviation * ConversionConstant
-  }
-  def playersToGlickoScale(players: List[Player]) {
-    if (players.nonEmpty) {
-      playerToGlickoScale(players.head)
-      playersToGlickoScale(players.tail)
-    }
-  }
+  def playerToGlickoScale(p: PlayerRating) = PlayerRating(p.gameType, p.rating * ConversionConstant + 1500, p.ratingDeviation * ConversionConstant)
+  def gameToGlickoScale(g: Game) = Game(playerToGlickoScale(g.winner), playerToGlickoScale(g.loser), g.draw)
+  def gamesToGlickoScale(g: List[Game]) = g map (game => gameToGlickoScale(game))
 }
