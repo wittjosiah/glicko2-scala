@@ -7,7 +7,7 @@ import glicko2scala.models._
  */
 
 // Based off of Mark Glickman's rating system as specified in http://www.glicko.net/glicko/glicko2.pdf
-class Glicko2Client(tau: Double = 0.75, val clientId: String) {
+object Glicko2Client {
   //  ___ _____ ___ ___
   // |___   |   |_  |__|  /|
   //  ___|  |   |__ |     _|_
@@ -17,6 +17,7 @@ class Glicko2Client(tau: Double = 0.75, val clientId: String) {
   val DefaultVolatility =  0.06
   val ConversionConstant =  173.7178
   val ConvergenceTolerance =  0.000001
+  val tau = 0.5
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  ___|

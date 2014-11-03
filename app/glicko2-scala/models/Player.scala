@@ -7,4 +7,4 @@ case class Player(
   var rating: Double = 1500,
   var ratingDeviation: Double = 200,
   var volatility: Double = 0.06,
-  clientId: String)
+  matchType: String)
