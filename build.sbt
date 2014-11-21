@@ -1,6 +1,6 @@
 name := """glicko2-scala"""
 
-version := "1.2"
+version := "0.1.2"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 

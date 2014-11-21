@@ -23,7 +23,7 @@ object RatingSystem {
   // |___   |   |_  |__|  ___|
   //  ___|  |   |__ |    |___
 
-  def playerToGlicko2Scale(p: PlayerRating) = PlayerRating(p.gameType, (p.rating - 1500) / ConversionConstant, p.ratingDeviation / ConversionConstant)
+  def playerToGlicko2Scale(p: PlayerRating) = PlayerRating(p.playerID, p.gameType, (p.rating - 1500) / ConversionConstant, p.ratingDeviation / ConversionConstant)
   def gameToGlicko2Scale(g: Game) = Game(playerToGlicko2Scale(g.winner), playerToGlicko2Scale(g.loser), g.draw)
   def gamesToGlicko2Scale(g: List[Game]) = g map (game => gameToGlicko2Scale(game))
 
@@ -33,7 +33,7 @@ object RatingSystem {
 
   def g(deviation: Double) = 1.0 / Math.sqrt(1.0 + (3.0 * Math.pow(deviation, 2) / Math.pow(Math.PI, 2)))
   def E(playerRating: Double, opponentRating: Double, opponentDeviation: Double) = 1.0 / (1.0 + Math.exp(-1.0 * g(opponentDeviation) * (playerRating - opponentRating)))
-  def getOpponent(player: PlayerRating, thisMatch: Game) = if (player == thisMatch.winner) thisMatch.loser else thisMatch.winner
+  def getOpponent(player: PlayerRating, thisMatch: Game) = if (player.playerID == thisMatch.winner.playerID) thisMatch.loser else thisMatch.winner
   def inverse_v(player: PlayerRating, games: List[Game]): Double = {
     if (games.isEmpty) 0 else {
       val opponent = getOpponent(player, games.head)
@@ -49,7 +49,7 @@ object RatingSystem {
   // |___   |   |_  |__|  |__|
   //  ___|  |   |__ |        |
 
-  def getScore(player: PlayerRating, thisMatch: Game) = if (thisMatch.draw) 0.5 else if (player == thisMatch.winner) 1.0 else 0.0
+  def getScore(player: PlayerRating, thisMatch: Game) = if (thisMatch.draw) 0.5 else if (player.playerID == thisMatch.winner.playerID) 1.0 else 0.0
   def outcomeRating(player: PlayerRating, games: List[Game]): Double = {
     if (games.isEmpty) 0 else {
       val opponent = getOpponent(player, games.head)
@@ -117,14 +117,14 @@ object RatingSystem {
     val newDeviation = 1.0 / Math.sqrt(1.0/Math.pow(interDeviation, 2) + 1.0/v)
     val newRating = player.rating + Math.pow(newDeviation, 2) * outcomeRating(player, games)
 
-    playerToGlickoScale(PlayerRating(player.gameType, newRating, newDeviation, newVolatility))
+    playerToGlickoScale(PlayerRating(player.playerID, player.gameType, newRating, newDeviation, newVolatility))
   }
 
   //  ___ _____ ___ ___   ___
   // |___   |   |_  |__|  |__|
   //  ___|  |   |__ |     |__|
 
-  def playerToGlickoScale(p: PlayerRating) = PlayerRating(p.gameType, p.rating * ConversionConstant + 1500, p.ratingDeviation * ConversionConstant)
+  def playerToGlickoScale(p: PlayerRating) = PlayerRating(p.playerID, p.gameType, p.rating * ConversionConstant + 1500, p.ratingDeviation * ConversionConstant)
   def gameToGlickoScale(g: Game) = Game(playerToGlickoScale(g.winner), playerToGlickoScale(g.loser), g.draw)
   def gamesToGlickoScale(g: List[Game]) = g map (game => gameToGlickoScale(game))
 }
